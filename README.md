@@ -1,1 +1,1 @@
-# CS231n-Stanford-Spring-2017-Assignment-Solutions
+# My CS231n-Stanford-Spring-2017-Assignment-Solutions
