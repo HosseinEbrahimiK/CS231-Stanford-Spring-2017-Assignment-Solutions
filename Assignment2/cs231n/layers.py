@@ -37,43 +37,7 @@ def relu_backward(dout, cache):
     return dx
 
 def batchnorm_forward(x, gamma, beta, bn_param):
-    """
-    Forward pass for batch normalization.
-
-    During training the sample mean and (uncorrected) sample variance are
-    computed from minibatch statistics and used to normalize the incoming data.
-    During training we also keep an exponentially decaying running mean of the
-    mean and variance of each feature, and these averages are used to normalize
-    data at test-time.
-
-    At each timestep we update the running averages for mean and variance using
-    an exponential decay based on the momentum parameter:
-
-    running_mean = momentum * running_mean + (1 - momentum) * sample_mean
-    running_var = momentum * running_var + (1 - momentum) * sample_var
-
-    Note that the batch normalization paper suggests a different test-time
-    behavior: they compute sample mean and variance for each feature using a
-    large number of training images rather than using a running average. For
-    this implementation we have chosen to use running averages instead since
-    they do not require an additional estimation step; the torch7
-    implementation of batch normalization also uses running averages.
-
-    Input:
-    - x: Data of shape (N, D)
-    - gamma: Scale parameter of shape (D,)
-    - beta: Shift paremeter of shape (D,)
-    - bn_param: Dictionary with the following keys:
-      - mode: 'train' or 'test'; required
-      - eps: Constant for numeric stability
-      - momentum: Constant for running mean / variance.
-      - running_mean: Array of shape (D,) giving running mean of features
-      - running_var Array of shape (D,) giving running variance of features
-
-    Returns a tuple of:
-    - out: of shape (N, D)
-    - cache: A tuple of values needed in the backward pass
-    """
+    
     mode = bn_param['mode']
     eps = bn_param.get('eps', 1e-5)
     momentum = bn_param.get('momentum', 0.9)
@@ -84,38 +48,18 @@ def batchnorm_forward(x, gamma, beta, bn_param):
 
     out, cache = None, None
     if mode == 'train':
-        #######################################################################
-        # TODO: Implement the training-time forward pass for batch norm.      #
-        # Use minibatch statistics to compute the mean and variance, use      #
-        # these statistics to normalize the incoming data, and scale and      #
-        # shift the normalized data using gamma and beta.                     #
-        #                                                                     #
-        # You should store the output in the variable out. Any intermediates  #
-        # that you need for the backward pass should be stored in the cache   #
-        # variable.                                                           #
-        #                                                                     #
-        # You should also use your computed sample mean and variance together #
-        # with the momentum variable to update the running mean and running   #
-        # variance, storing your result in the running_mean and running_var   #
-        # variables.                                                          #
-        #######################################################################
         
         mean_batch = np.mean(x, axis=0)
         var_batch = np.var(x, axis=0)
         
-        out = gamma * ((x - mean_batch) / np.sqrt(var_batch + eps)) + beta
-        cache = {'mean_batch': mean_batch, 'var_batch': var_batch, 'gamma': gamma}
+        x_hat = (x - mean_batch) / np.sqrt(var_batch + eps)
+        out = gamma * x_hat + beta
+        cache = {'x':x, 'x_hat':x_hat, 'mean_batch':mean_batch, 'var_batch':var_batch, 'gamma':gamma, 'eps':eps}
         
         running_mean = momentum * running_mean + (1 - momentum) * mean_batch
         running_var = momentum * running_var + (1 - momentum) * var_batch
         
     elif mode == 'test':
-        #######################################################################
-        # TODO: Implement the test-time forward pass for batch normalization. #
-        # Use the running mean and variance to normalize the incoming data,   #
-        # then scale and shift the normalized data using gamma and beta.      #
-        # Store the result in the out variable.                               #
-        #######################################################################
         
         out = gamma * ((x - running_mean) / np.sqrt(running_var + eps)) + beta
         
@@ -147,15 +91,29 @@ def batchnorm_backward(dout, cache):
     - dbeta: Gradient with respect to shift parameter beta, of shape (D,)
     """
     dx, dgamma, dbeta = None, None, None
-    ###########################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the    #
-    # results in the dx, dgamma, and dbeta variables.                         #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-
+    
+    x = cache['x']
+    x_hat = cache['x_hat']
+    mean_batch = cache['mean_batch']
+    var_batch = cache['var_batch']
+    gamma = cache['gamma']
+    eps = cache['eps']
+   
+    N = x.shape[0]
+    
+    dgamma = np.diag(np.matmul(x_hat.T, dout))
+    dbeta = np.sum(dout, axis=0)
+    dx_hat = dout * gamma
+    
+    dvar_batch = np.diag(np.matmul(dx_hat.T, x - mean_batch)) * (-0.5 * (var_batch + eps) ** -1.5)
+    dmean_batch = -np.sum(dx_hat, axis=0) / np.sqrt(var_batch + eps)
+    dx = dx_hat / (np.sqrt(var_batch + eps))
+    
+    dmean_batch += (np.sum(x - mean_batch) * (-2 / N)) * dvar_batch # actually this part is zero
+    dx += (2 * (x - mean_batch) / N) * dvar_batch
+    
+    dx += (dmean_batch / N)
+    
     return dx, dgamma, dbeta
 
 
@@ -173,19 +131,19 @@ def batchnorm_backward_alt(dout, cache):
     Inputs / outputs: Same as batchnorm_backward
     """
     dx, dgamma, dbeta = None, None, None
-    ###########################################################################
-    # TODO: Implement the backward pass for batch normalization. Store the    #
-    # results in the dx, dgamma, and dbeta variables.                         #
-    #                                                                         #
-    # After computing the gradient with respect to the centered inputs, you   #
-    # should be able to compute gradients with respect to the inputs in a     #
-    # single statement; our implementation fits on a single 80-character line.#
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-
+    
+    x_hat = cache['x_hat']
+    var_batch = cache['var_batch']
+    gamma = cache['gamma']
+    eps = cache['eps']
+    
+    N = x_hat.shape[0]
+    
+    dgamma = np.diag(np.matmul(x_hat.T, dout))
+    dbeta = np.sum(dout, axis=0)
+    
+    dx = (N * gamma * dout - dbeta * gamma - dgamma * gamma * x_hat) / (N * np.sqrt(var_batch + eps))
+    
     return dx, dgamma, dbeta
 
 
