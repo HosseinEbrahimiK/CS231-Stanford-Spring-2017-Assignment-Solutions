@@ -107,6 +107,9 @@ class FullyConnectedNet(object):
             if layer == 0:
                 self.params['W'+str(layer+1)] = weight_scale * np.random.randn(input_dim, hidden_dims[layer])
                 self.params['b'+str(layer+1)] = np.zeros(hidden_dims[layer])
+                if self.use_batchnorm:
+                    self.params['gamma'+str(layer+1)] = np.ones(hidden_dims[layer])
+                    self.params['beta'+str(layer+1)] = np.zeros(hidden_dims[layer])
                 
             elif layer == self.num_layers-1:
                 self.params['W'+str(layer+1)] = weight_scale * np.random.randn(hidden_dims[layer-1], num_classes)
@@ -115,6 +118,9 @@ class FullyConnectedNet(object):
             else:
                 self.params['W'+str(layer+1)] = weight_scale * np.random.randn(hidden_dims[layer-1], hidden_dims[layer])
                 self.params['b'+str(layer+1)] = np.zeros(hidden_dims[layer])
+                if self.use_batchnorm:
+                    self.params['gamma'+str(layer+1)] = np.ones(hidden_dims[layer])
+                    self.params['beta'+str(layer+1)] = np.zeros(hidden_dims[layer])
                 
         # When using dropout we need to pass a dropout_param dictionary to each
         # dropout layer so that the layer knows the dropout probability and the mode
@@ -132,7 +138,7 @@ class FullyConnectedNet(object):
         # pass of the second batch normalization layer, etc.
         self.bn_params = []
         if self.use_batchnorm:
-            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers - 1)]
+            self.bn_params = [{'mode': 'train'} for i in range(self.num_layers+1)]
 
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
@@ -173,16 +179,23 @@ class FullyConnectedNet(object):
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
-        cache = {'relu' : [None for _ in range(self.num_layers+1)], 'dropout': [None for _ in range(self.num_layers+1)]}
+        cache = {'relu' : [None for _ in range(self.num_layers+1)], 'dropout': [None for _ in range(self.num_layers+1)], 
+                'bn': [None for _ in range(self.num_layers+1)]}
+        
         out = [None for _ in range(self.num_layers+1)]
         out[0] = X.copy()
 
         for i in range(1, self.num_layers+1):
+            ind = str(i)
             if i == self.num_layers:
-                out[i], cache['relu'][i] = affine_forward(out[i-1], self.params['W'+str(i)], self.params['b'+str(i)])
+                out[i], cache['relu'][i] = affine_forward(out[i-1], self.params['W'+ind], self.params['b'+ind])
                 scores = out[i].copy() 
             else:
-                out[i], cache['relu'][i] = affine_relu_forward(out[i-1], self.params['W'+str(i)], self.params['b'+str(i)])
+                if self.use_batchnorm:
+                    out[i], cache['bn'][i] = affine_bn_relu_forward(out[i-1], self.params['W'+ind], self.params['b'+ind],           self.params['gamma'+ind], self.params['beta'+ind], self.bn_params[i])
+                else:
+                    out[i], cache['relu'][i] = affine_relu_forward(out[i-1], self.params['W'+ind], self.params['b'+ind])
+                    
                 if self.use_dropout:
                     out[i], cache['dropout'][i] = dropout_forward(out[i], self.dropout_param)
 
@@ -214,13 +227,19 @@ class FullyConnectedNet(object):
         loss += (self.reg/2) * np.sum([(np.sum(self.params['W'+str(i)]**2, axis=None)) for i in range(1, self.num_layers+1)])
         
         for i in range(self.num_layers, 0, -1):
+            ind = str(i)
             if i == self.num_layers:
-                dout[i-1], grads['W'+str(i)], grads['b'+str(i)] = affine_backward(dout[i], cache['relu'][i])
-                grads['W'+str(i)] += self.reg * self.params['W'+str(i)]
+                dout[i-1], grads['W'+ind], grads['b'+ind] = affine_backward(dout[i], cache['relu'][i])
+                grads['W'+ind] += self.reg * self.params['W'+ind]
             else:
                 if self.use_dropout:
                     dout[i] = dropout_backward(dout[i], cache['dropout'][i])
-                dout[i-1], grads['W'+str(i)], grads['b'+str(i)] = affine_relu_backward(dout[i], cache['relu'][i])
-                grads['W'+str(i)] += self.reg * self.params['W'+str(i)]
+                    
+                if self.use_batchnorm:
+                    dout[i-1], grads['W'+ind], grads['b'+ind], grads['gamma'+ind], grads['beta'+ind] =affine_bn_relu_backward(dout[i], cache['bn'][i])
+                    grads['W'+ind] += self.reg * self.params['W'+ind]
+                else:
+                    dout[i-1], grads['W'+ind], grads['b'+ind] = affine_relu_backward(dout[i], cache['relu'][i])
+                    grads['W'+ind] += self.reg * self.params['W'+ind]
             
         return loss, grads
