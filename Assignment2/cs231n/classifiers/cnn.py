@@ -53,6 +53,16 @@ class ThreeLayerConvNet(object):
         #                             END OF YOUR CODE                             #
         ############################################################################
 
+        self.params['W1'] = weight_scale * np.random.randn(num_filters, input_dim[0], filter_size, filter_size)
+        self.params['b1'] = np.zeros(num_filters)
+        
+        length = int((((1 + input_dim[1] + 2 * ((filter_size - 1) // 2) - filter_size) - 2) / 2) + 1)
+        self.params['W2'] = weight_scale * np.random.randn(num_filters * (length**2), hidden_dim)
+        self.params['b2'] = np.zeros(hidden_dim)
+        
+        self.params['W3'] = weight_scale * np.random.randn(hidden_dim, num_classes)
+        self.params['b3'] = np.zeros(num_classes)
+        
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
 
@@ -84,7 +94,16 @@ class ThreeLayerConvNet(object):
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
-
+        out, cache = dict(), dict()
+        out['conv'], cache['conv'] = conv_forward_fast(X, W1, b1, conv_param)
+        out['relu1'], cache['relu1'] = relu_forward(out['conv'])
+        
+        out['pool'], cache['pool'] = max_pool_forward_fast(out['relu1'], pool_param)
+        out['fc1'], cache['fc1'] = affine_relu_forward(out['pool'], W2, b2)
+        
+        out['fc2'], cache['fc2'] = affine_forward(out['fc1'], W3, b3)
+        scores = out['fc2']
+        
         if y is None:
             return scores
 
@@ -99,5 +118,18 @@ class ThreeLayerConvNet(object):
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
+        
+        loss, dout = softmax_loss(scores, y)
+        loss += (self.reg / 2) * np.sum([np.sum(self.params['W'+str(i)] ** 2, axis=None) for i in range(1, 4)])
+        
+        dout, grads['W3'], grads['b3'] = affine_backward(dout, cache['fc2'])
+        dout, grads['W2'], grads['b2'] = affine_relu_backward(dout, cache['fc1'])
+        dout = max_pool_backward_fast(dout, cache['pool'])
+        
+        dout = relu_backward(dout, cache['relu1'])
+        dout, grads['W1'], grads['b1'] = conv_backward_fast(dout, cache['conv'])
+        
+        for i in range(1, 4):
+            grads['W'+str(i)] += self.reg * grads['W'+str(i)]
 
         return loss, grads
