@@ -413,19 +413,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     - cache: Values needed for the backward pass
     """
     out, cache = None, None
-
-    ###########################################################################
-    # TODO: Implement the forward pass for spatial batch normalization.       #
-    #                                                                         #
-    # HINT: You can implement spatial batch normalization using the vanilla   #
-    # version of batch normalization defined above. Your implementation should#
-    # be very short; ours is less than five lines.                            #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-
+    dims = x.shape
+    x = x.reshape(np.prod(dims[0]*dims[2]*dims[3]), dims[1])
+    out, cache = batchnorm_forward(x, gamma, beta, bn_param)
+    out = out.reshape(dims)
     return out, cache
 
 
@@ -443,19 +434,10 @@ def spatial_batchnorm_backward(dout, cache):
     - dbeta: Gradient with respect to shift parameter, of shape (C,)
     """
     dx, dgamma, dbeta = None, None, None
-
-    ###########################################################################
-    # TODO: Implement the backward pass for spatial batch normalization.      #
-    #                                                                         #
-    # HINT: You can implement spatial batch normalization using the vanilla   #
-    # version of batch normalization defined above. Your implementation should#
-    # be very short; ours is less than five lines.                            #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
-
+    dims = dout.shape
+    dout = dout.reshape(np.prod(dims[0]*dims[2]*dims[3]), dims[1])
+    dx, dgamma, dbeta = batchnorm_backward(dout, cache)
+    dx = dx.reshape(dims)
     return dx, dgamma, dbeta
 
 
