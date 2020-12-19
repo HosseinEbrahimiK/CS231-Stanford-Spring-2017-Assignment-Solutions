@@ -1,5 +1,5 @@
 # CS231n Assignments
-These are my solutions to the assignments of CS231n offered by the CS Department at Stanford in Spring quarter of 2018. All three assignments have been done on my VM instance of Google Cloud Compute Engine service.
+These are my solutions to the assignments of CS231n offered by the CS Department at Stanford in Spring quarter of 2017. All three assignments have been done on my VM instance of Google Cloud Compute Engine service.
 
 ## What is CS231n about?
 CS231n (Convolutional Neural Networks for Visual Recognition) is one of the most popular introductory courses on deep learning. Offered every spring since 2015, it is the first intrductory course on deep learning from Dr. Fei-Fei Li's group at Stanford. To give you a better view of the popularity of the course, the first lecture video of CS231n spring 2017 (available [here](https://youtu.be/vT1JzLTH4G4?list=PLC1qU-LWwrF64f4QKQT-Vg5Wr4qEE1Zxk)) has hit an amazing record of 1 million views on YouTube!<br/>
